@@ -15,14 +15,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "ark-bls12-381"
+name = "ark-bls12-377"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c775f0d12169cba7aae4caeb547bb6a50781c7449a8aa53793827c9ec4abf488"
+checksum = "fb00293ba84f51ce3bd026bd0de55899c4e68f0a39a5728cebae3a73ffdc0a4f"
 dependencies = [
  "ark-ec",
  "ark-ff",
- "ark-serialize",
  "ark-std",
 ]
 
@@ -64,12 +63,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "ark-ed-on-bls12-381"
+name = "ark-ed-on-bls12-377"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba6d678bb98a7e4f825bd4e332e93ac4f5a114ce2e3340dee4d7dc1c7ab5b323"
+checksum = "b10d901b9ac4b38f9c32beacedfadcdd64e46f8d7f8e88c1ae1060022cf6f6c6"
 dependencies = [
- "ark-bls12-381",
+ "ark-bls12-377",
  "ark-ec",
  "ark-ff",
  "ark-r1cs-std",
@@ -211,7 +210,7 @@ name = "arkworks-merkle-tree"
 version = "0.1.0"
 dependencies = [
  "ark-crypto-primitives",
- "ark-ed-on-bls12-381",
+ "ark-ed-on-bls12-377",
  "ark-r1cs-std",
  "ark-relations",
  "ark-std",

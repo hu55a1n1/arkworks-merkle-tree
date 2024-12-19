@@ -11,7 +11,7 @@ use ark_crypto_primitives::merkle_tree::{
     constraints::{BytesVarDigestConverter, ConfigGadget, PathVar},
     ByteDigestConverter, Config, MerkleTree, Path,
 };
-use ark_ed_on_bls12_381::{constraints::EdwardsVar, EdwardsProjective as JubJub, Fq};
+use ark_ed_on_bls12_377::{constraints::EdwardsVar, EdwardsProjective, Fq};
 use ark_r1cs_std::prelude::*;
 use ark_relations::r1cs::{
     ConstraintSynthesizer, ConstraintSystem, ConstraintSystemRef, SynthesisError,
@@ -24,12 +24,12 @@ impl Window for Window4x256 {
     const NUM_WINDOWS: usize = 256;
 }
 
-type LeafHash = PedersenCRH<JubJub, Window4x256>;
-type LeafHashGadget = PedersenCRHGadget<JubJub, EdwardsVar, Window4x256>;
+type LeafHash = PedersenCRH<EdwardsProjective, Window4x256>;
+type LeafHashGadget = PedersenCRHGadget<EdwardsProjective, EdwardsVar, Window4x256>;
 type LeafHashParams = <LeafHash as CRHScheme>::Parameters;
 type LeafHashParamsVar = <LeafHashGadget as CRHSchemeGadget<LeafHash, Fq>>::ParametersVar;
-type CompressHash = PedersenTwoToOneCRH<JubJub, Window4x256>;
-type CompressHashGadget = PedersenTwoToOneCRHGadget<JubJub, EdwardsVar, Window4x256>;
+type CompressHash = PedersenTwoToOneCRH<EdwardsProjective, Window4x256>;
+type CompressHashGadget = PedersenTwoToOneCRHGadget<EdwardsProjective, EdwardsVar, Window4x256>;
 type CompressHashParams = <CompressHash as TwoToOneCRHScheme>::Parameters;
 type CompressHashParamsVar =
     <CompressHashGadget as TwoToOneCRHSchemeGadget<CompressHash, Fq>>::ParametersVar;
@@ -42,9 +42,9 @@ type LeafVar = [UInt8<Fq>];
 type Root = InnerDigest;
 type RootVar = InnerDigestVar;
 
-struct JubJubMerkleTreeParams;
+struct Pedersen377MerkleTreeParams;
 
-impl Config for JubJubMerkleTreeParams {
+impl Config for Pedersen377MerkleTreeParams {
     type Leaf = Leaf;
     type LeafDigest = LeafDigest;
     type LeafInnerDigestConverter = ByteDigestConverter<Self::LeafDigest>;
@@ -53,8 +53,8 @@ impl Config for JubJubMerkleTreeParams {
     type TwoToOneHash = CompressHash;
 }
 
-struct JubJubMerkleTreeParamsVar;
-impl ConfigGadget<JubJubMerkleTreeParams, Fq> for JubJubMerkleTreeParamsVar {
+struct Pedersen377MerkleTreeParamsVar;
+impl ConfigGadget<Pedersen377MerkleTreeParams, Fq> for Pedersen377MerkleTreeParamsVar {
     type Leaf = LeafVar;
     type LeafDigest = LeafDigestVar;
     type LeafInnerConverter = BytesVarDigestConverter<Self::LeafDigest, Fq>;
@@ -63,9 +63,10 @@ impl ConfigGadget<JubJubMerkleTreeParams, Fq> for JubJubMerkleTreeParamsVar {
     type TwoToOneHash = CompressHashGadget;
 }
 
-type JubJubMerkleTree = MerkleTree<JubJubMerkleTreeParams>;
-type JubJubMerklePath = Path<JubJubMerkleTreeParams>;
-type JubJubMerklePathVar = PathVar<JubJubMerkleTreeParams, Fq, JubJubMerkleTreeParamsVar>;
+type Pedersen377MerkleTree = MerkleTree<Pedersen377MerkleTreeParams>;
+type Pedersen377MerklePath = Path<Pedersen377MerkleTreeParams>;
+type Pedersen377MerklePathVar =
+    PathVar<Pedersen377MerkleTreeParams, Fq, Pedersen377MerkleTreeParamsVar>;
 
 struct MerkleTreeVerification {
     // These are constants that will be embedded into the circuit
@@ -77,7 +78,7 @@ struct MerkleTreeVerification {
     leaf: u8,
 
     // This is the private witness to the circuit.
-    authentication_path: Option<JubJubMerklePath>,
+    authentication_path: Option<Pedersen377MerklePath>,
 }
 
 impl ConstraintSynthesizer<Fq> for MerkleTreeVerification {
@@ -96,9 +97,10 @@ impl ConstraintSynthesizer<Fq> for MerkleTreeVerification {
             CompressHashParamsVar::new_constant(cs.clone(), &self.two_to_one_crh_params)?;
 
         // Finally, we allocate our path as a private witness variable:
-        let path = JubJubMerklePathVar::new_witness(ark_relations::ns!(cs, "path_var"), || {
-            Ok(self.authentication_path.as_ref().unwrap())
-        })?;
+        let path =
+            Pedersen377MerklePathVar::new_witness(ark_relations::ns!(cs, "path_var"), || {
+                Ok(self.authentication_path.as_ref().unwrap())
+            })?;
 
         let is_member =
             path.verify_membership(&leaf_crh_params, &two_to_one_crh_params, &root, &[leaf])?;
@@ -126,7 +128,7 @@ mod test {
 
         // Next, let's construct our tree.
         // This follows the API in https://github.com/arkworks-rs/crypto-primitives/blob/6be606259eab0aec010015e2cfd45e4f134cd9bf/src/merkle_tree/mod.rs#L156
-        let tree = JubJubMerkleTree::new(
+        let tree = Pedersen377MerkleTree::new(
             &leaf_crh_params,
             &two_to_one_crh_params,
             [1u8, 2u8, 3u8, 10u8, 9u8, 17u8, 70u8, 45u8].map(|u| [u]), // the i-th entry is the i-th leaf.
@@ -181,7 +183,7 @@ mod test {
 
         // Next, let's construct our tree.
         // This follows the API in https://github.com/arkworks-rs/crypto-primitives/blob/6be606259eab0aec010015e2cfd45e4f134cd9bf/src/merkle_tree/mod.rs#L156
-        let tree = JubJubMerkleTree::new(
+        let tree = Pedersen377MerkleTree::new(
             &leaf_crh_params,
             &two_to_one_crh_params,
             [1u8, 2u8, 3u8, 10u8, 9u8, 17u8, 70u8, 45u8].map(|u| [u]), // the i-th entry is the i-th leaf.
@@ -189,7 +191,7 @@ mod test {
         .unwrap();
 
         // We just mutate the first leaf
-        let second_tree = JubJubMerkleTree::new(
+        let second_tree = Pedersen377MerkleTree::new(
             &leaf_crh_params,
             &two_to_one_crh_params,
             [4u8, 2u8, 3u8, 10u8, 9u8, 17u8, 70u8, 45u8].map(|u| [u]), // the i-th entry is the i-th leaf.
@@ -235,7 +237,7 @@ mod test {
         let leaf_crh_params = <LeafHash as CRHScheme>::setup(&mut rng).unwrap();
         let two_to_one_crh_params = <CompressHash as TwoToOneCRHScheme>::setup(&mut rng).unwrap();
         let mut tree =
-            JubJubMerkleTree::new(&leaf_crh_params, &two_to_one_crh_params, leaves.clone())
+            Pedersen377MerkleTree::new(&leaf_crh_params, &two_to_one_crh_params, leaves.clone())
                 .unwrap();
         let root = tree.root();
         for (i, leaf) in leaves.iter().enumerate() {
@@ -293,7 +295,7 @@ mod test {
             println!("constraints from leaf: {}", constraints_from_leaf);
 
             // Allocate Merkle Tree Path
-            let cw: PathVar<JubJubMerkleTreeParams, Fq, JubJubMerkleTreeParamsVar> =
+            let cw: PathVar<Pedersen377MerkleTreeParams, Fq, Pedersen377MerkleTreeParamsVar> =
                 PathVar::new_witness(ark_relations::ns!(cs, "new_witness"), || Ok(&proof)).unwrap();
 
             let constraints_from_path = cs.num_constraints()
@@ -363,8 +365,11 @@ mod test {
                 )
                 .unwrap();
             let old_path = tree.generate_proof(update_query.0).unwrap();
-            let old_path_var: PathVar<JubJubMerkleTreeParams, Fq, JubJubMerkleTreeParamsVar> =
-                PathVar::new_input(ark_relations::ns!(cs, "old_path"), || Ok(old_path)).unwrap();
+            let old_path_var: PathVar<
+                Pedersen377MerkleTreeParams,
+                Fq,
+                Pedersen377MerkleTreeParamsVar,
+            > = PathVar::new_input(ark_relations::ns!(cs, "old_path"), || Ok(old_path)).unwrap();
             let new_root = {
                 tree.update(update_query.0, &update_query.1).unwrap();
                 tree.root()
