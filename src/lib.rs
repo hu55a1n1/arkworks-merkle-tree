@@ -3,14 +3,16 @@ use ark_crypto_primitives::crh::{
 };
 use ark_crypto_primitives::merkle_tree::{
     constraints::{BytesVarDigestConverter, ConfigGadget, PathVar},
-    ByteDigestConverter, Config, MerkleTree,
+    ByteDigestConverter, Config, MerkleTree, Path,
 };
 use ark_ed_on_bls12_381::{constraints::EdwardsVar, EdwardsProjective as JubJub, Fq};
 use ark_r1cs_std::prelude::*;
-use ark_relations::r1cs::ConstraintSystem;
+use ark_relations::r1cs::{
+    ConstraintSynthesizer, ConstraintSystem, ConstraintSystemRef, SynthesisError,
+};
 
 #[derive(Clone)]
-pub struct Window4x256;
+struct Window4x256;
 impl pedersen::Window for Window4x256 {
     const WINDOW_SIZE: usize = 4;
     const NUM_WINDOWS: usize = 256;
@@ -21,33 +23,85 @@ type LeafHG = pedersen::constraints::CRHGadget<JubJub, EdwardsVar, Window4x256>;
 
 type CompressH = pedersen::TwoToOneCRH<JubJub, Window4x256>;
 type CompressHG = pedersen::constraints::TwoToOneCRHGadget<JubJub, EdwardsVar, Window4x256>;
-
-type LeafVar<ConstraintF> = [UInt8<ConstraintF>];
+type LeafDigest = <LeafH as CRHScheme>::Output;
+type LeafDigestVar = <LeafHG as CRHSchemeGadget<LeafH, Fq>>::OutputVar;
+type InnerDigest = <CompressH as TwoToOneCRHScheme>::Output;
+type InnerDigestVar = <CompressHG as TwoToOneCRHSchemeGadget<CompressH, Fq>>::OutputVar;
+type Leaf = [u8];
+type LeafVar = [UInt8<Fq>];
+type Root = InnerDigest;
+type RootVar = InnerDigestVar;
 
 struct JubJubMerkleTreeParams;
 
 impl Config for JubJubMerkleTreeParams {
-    type Leaf = [u8];
-    type LeafDigest = <LeafH as CRHScheme>::Output;
+    type Leaf = Leaf;
+    type LeafDigest = LeafDigest;
     type LeafInnerDigestConverter = ByteDigestConverter<Self::LeafDigest>;
-
-    type InnerDigest = <CompressH as TwoToOneCRHScheme>::Output;
+    type InnerDigest = InnerDigest;
     type LeafHash = LeafH;
     type TwoToOneHash = CompressH;
 }
 
-type ConstraintF = Fq;
 struct JubJubMerkleTreeParamsVar;
-impl ConfigGadget<JubJubMerkleTreeParams, ConstraintF> for JubJubMerkleTreeParamsVar {
-    type Leaf = LeafVar<ConstraintF>;
-    type LeafDigest = <LeafHG as CRHSchemeGadget<LeafH, ConstraintF>>::OutputVar;
-    type LeafInnerConverter = BytesVarDigestConverter<Self::LeafDigest, ConstraintF>;
-    type InnerDigest = <CompressHG as TwoToOneCRHSchemeGadget<CompressH, ConstraintF>>::OutputVar;
+impl ConfigGadget<JubJubMerkleTreeParams, Fq> for JubJubMerkleTreeParamsVar {
+    type Leaf = LeafVar;
+    type LeafDigest = LeafDigestVar;
+    type LeafInnerConverter = BytesVarDigestConverter<Self::LeafDigest, Fq>;
+    type InnerDigest = InnerDigestVar;
     type LeafHash = LeafHG;
     type TwoToOneHash = CompressHG;
 }
 
 type JubJubMerkleTree = MerkleTree<JubJubMerkleTreeParams>;
+
+struct MerkleTreeVerification {
+    // These are constants that will be embedded into the circuit
+    leaf_crh_params: <LeafH as CRHScheme>::Parameters,
+    two_to_one_crh_params: <CompressH as TwoToOneCRHScheme>::Parameters,
+
+    // These are the public inputs to the circuit.
+    root: Root,
+    leaf: u8,
+
+    // This is the private witness to the circuit.
+    authentication_path: Option<Path<JubJubMerkleTreeParams>>,
+}
+
+impl ConstraintSynthesizer<Fq> for MerkleTreeVerification {
+    fn generate_constraints(self, cs: ConstraintSystemRef<Fq>) -> Result<(), SynthesisError> {
+        // First, we allocate the public inputs
+        let root =
+            <RootVar as AllocVar<Root, Fq>>::new_input(ark_relations::ns!(cs, "root_var"), || {
+                Ok(&self.root)
+            })?;
+
+        let leaf = UInt8::new_input(ark_relations::ns!(cs, "leaf_var"), || Ok(&self.leaf))?;
+
+        // Then, we allocate the public parameters as constants:
+        let leaf_crh_params = <LeafHG as CRHSchemeGadget<LeafH, _>>::ParametersVar::new_constant(
+            cs.clone(),
+            &self.leaf_crh_params,
+        )?;
+        let two_to_one_crh_params =
+            <CompressHG as TwoToOneCRHSchemeGadget<CompressH, _>>::ParametersVar::new_constant(
+                cs.clone(),
+                &self.two_to_one_crh_params,
+            )?;
+
+        // Finally, we allocate our path as a private witness variable:
+        let path = PathVar::<JubJubMerkleTreeParams, Fq, JubJubMerkleTreeParamsVar>::new_witness(
+            ark_relations::ns!(cs, "path_var"),
+            || Ok(self.authentication_path.as_ref().unwrap()),
+        )?;
+
+        let is_member =
+            path.verify_membership(&leaf_crh_params, &two_to_one_crh_params, &root, &[leaf])?;
+        is_member.enforce_equal(&Boolean::TRUE)?;
+
+        Ok(())
+    }
+}
 
 #[cfg(test)]
 mod test {
