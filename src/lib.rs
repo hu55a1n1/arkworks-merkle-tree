@@ -1,3 +1,5 @@
+mod poseidontree;
+
 use ark_crypto_primitives::crh::{
     pedersen::{
         constraints::{
