@@ -1,4 +1,4 @@
-mod poseidontree;
+pub mod poseidontree;
 
 use ark_crypto_primitives::crh::{
     pedersen::{
