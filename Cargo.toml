@@ -9,3 +9,6 @@ ark-relations = { version = "0.4.0", default-features = false }
 ark-r1cs-std = { version = "0.4.0", default-features = false }
 ark-ed-on-bls12-377 = { version = "0.4.0", default-features = false, features = ["r1cs"] }
 ark-crypto-primitives = { version = "0.4.0", features = ["merkle_tree", "r1cs"] }
+
+# decaf377 = { path = "../decaf377", default-features = true}
+decaf377 = { version = "0.10.1", default-features = true }

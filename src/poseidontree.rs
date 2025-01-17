@@ -1,16 +1,17 @@
 // use crate::crh::{CRHScheme, TwoToOneCRHScheme};
-// use crate::sponge::poseidon::{PoseidonConfig, PoseidonSponge};
+pub use ark_crypto_primitives::sponge::poseidon::PoseidonConfig;
 use ark_crypto_primitives::{crh::{bowe_hopwood::constraints::ParametersVar, poseidon::{constraints::{CRHGadget as PoseidonCRHGadget, TwoToOneCRHGadget as PoseidonTwoToOneCRHGadget}, TwoToOneCRH as PoseidonTwoToOneCRH, CRH as PoseidonCRH}}, merkle_tree::{constraints::PathVar, MerkleTree, Path}};
 use ark_crypto_primitives::crh::{CRHScheme, CRHSchemeGadget, TwoToOneCRHScheme, TwoToOneCRHSchemeGadget};
 use ark_crypto_primitives::merkle_tree::constraints::ConfigGadget;
 use ark_crypto_primitives::merkle_tree::{Config, IdentityDigestConverter};
-use ark_ed_on_bls12_377::{constraints::FqVar, Fq};
+// use ark_ed_on_bls12_377::{constraints::FqVar, Fq};
+use decaf377::Fq;
 use ark_r1cs_std::{alloc::AllocVar, fields::fp::FpVar, prelude::Boolean, uint8::UInt8};
 use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystemRef, SynthesisError};
 use ark_r1cs_std::eq::EqGadget;
 use ark_crypto_primitives::crh::poseidon::constraints::CRHParametersVar;
 
-struct Poseidon377MerkleTreeParams;
+pub struct Poseidon377MerkleTreeParams;
 
 // TODO fix this
 // type Leaf = [u8];
@@ -54,17 +55,17 @@ impl ConfigGadget<Poseidon377MerkleTreeParams, Fq> for Poseidon377MerkleTreePara
     type TwoToOneHash = PoseidonTwoToOneCRHGadget<Fq>;
 }
 
-type Poseidon377MerkleTree = MerkleTree<Poseidon377MerkleTreeParams>;
-type Poseidon377MerklePath = Path<Poseidon377MerkleTreeParams>;
-type Poseidon377MerklePathVar =
+pub type Poseidon377MerkleTree = MerkleTree<Poseidon377MerkleTreeParams>;
+pub type Poseidon377MerklePath = Path<Poseidon377MerkleTreeParams>;
+pub type Poseidon377MerklePathVar =
     PathVar<Poseidon377MerkleTreeParams, Fq, Poseidon377MerkleTreeParamsVar>;
 
-type LeafHashParams = <LeafHash as CRHScheme>::Parameters;
+pub type LeafHashParams = <LeafHash as CRHScheme>::Parameters;
 type LeafHashParamsVar = <PoseidonCRHGadget<Fq> as CRHSchemeGadget<LeafHash, Fq>>::OutputVar;
-type TwoToOneHashParams = <TwoToOneHash as TwoToOneCRHScheme>::Parameters;
+pub type TwoToOneHashParams = <TwoToOneHash as TwoToOneCRHScheme>::Parameters;
 type TwoToOneHashParamsVar = <PoseidonTwoToOneCRHGadget<Fq> as TwoToOneCRHSchemeGadget<TwoToOneHash, Fq>>::ParametersVar;
 
-type Root = InnerDigest;
+pub type Root = InnerDigest;
 type RootVar = InnerDigestVar;
 
 struct MerkleTreeVerification {
@@ -123,8 +124,6 @@ mod test {
 
         // Let's set up an RNG for use within tests. Note that this is *not* safe
         // for any production use.
-        let mut rng = ark_std::test_rng();
-
         let (mds, ark) = {
             let mut test_rng = ark_std::test_rng();
 
