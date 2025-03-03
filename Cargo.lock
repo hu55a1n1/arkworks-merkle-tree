@@ -125,6 +125,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ark-groth16"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "20ceafa83848c3e390f1cbf124bc3193b3e639b3f02009e0e290809a501b95fc"
+dependencies = [
+ "ark-crypto-primitives",
+ "ark-ec",
+ "ark-ff",
+ "ark-poly",
+ "ark-relations",
+ "ark-serialize",
+ "ark-std",
+]
+
+[[package]]
 name = "ark-poly"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -216,9 +231,12 @@ name = "arkworks-merkle-tree"
 version = "0.1.0"
 dependencies = [
  "ark-crypto-primitives",
+ "ark-ec",
  "ark-ed-on-bls12-377",
+ "ark-groth16",
  "ark-r1cs-std",
  "ark-relations",
+ "ark-std",
  "decaf377",
  "poseidon-parameters",
  "poseidon377",

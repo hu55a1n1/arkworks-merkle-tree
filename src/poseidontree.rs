@@ -164,6 +164,8 @@ impl<const N_ROWS: usize, const N_COLS: usize, const N_ELEMENTS: usize> MatrixEx
 
 #[cfg(test)]
 mod test {
+    use ark_std::rand::RngCore;
+
     use super::*;
 
     #[test]

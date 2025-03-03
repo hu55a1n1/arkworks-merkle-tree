@@ -12,3 +12,8 @@ ark-crypto-primitives = { version = "0.4.0", features = ["merkle_tree", "r1cs"] 
 decaf377 = { git = "https://github.com/hu55a1n1/decaf377.git", default-features = false }
 poseidon377 = { git = "https://github.com/dangush/poseidon377.git", version = "1.2.0", default-features = false }
 poseidon-parameters = { git = "https://github.com/dangush/poseidon377.git", default-features = false }
+
+[dev-dependencies]
+ark-std = { version = "0.4.0", default-features = false }
+ark-groth16 = { version = "0.4.0", default-features = false }
+ark-ec = { version = "0.4.0", default-features = false }
