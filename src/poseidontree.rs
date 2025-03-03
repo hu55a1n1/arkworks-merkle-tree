@@ -1,4 +1,4 @@
-use ark_crypto_primitives::{crh::{poseidon::{constraints::{CRHGadget as PoseidonCRHGadget, TwoToOneCRHGadget as PoseidonTwoToOneCRHGadget}, TwoToOneCRH as PoseidonTwoToOneCRH, CRH as PoseidonCRH}}, merkle_tree::{constraints::PathVar, MerkleTree, Path}};
+use ark_crypto_primitives::{crh::poseidon::{constraints::{CRHGadget as PoseidonCRHGadget, TwoToOneCRHGadget as PoseidonTwoToOneCRHGadget}, TwoToOneCRH as PoseidonTwoToOneCRH, CRH as PoseidonCRH}, merkle_tree::{constraints::PathVar, MerkleTree, Path}, sponge::poseidon::PoseidonConfig};
 use ark_crypto_primitives::crh::{CRHScheme, CRHSchemeGadget, TwoToOneCRHScheme, TwoToOneCRHSchemeGadget};
 use ark_crypto_primitives::merkle_tree::constraints::ConfigGadget;
 use ark_crypto_primitives::merkle_tree::{Config, IdentityDigestConverter};
@@ -102,11 +102,68 @@ impl ConstraintSynthesizer<Fq> for MerkleTreeVerification {
 }
 
 
+/// The const input for an [`SettlementProof`].
+#[derive(Clone, Debug)]
+pub struct SettlementProofConst {
+    // Poseidon CRH constants that will be embedded into the circuit
+    pub leaf_crh_params: LeafHashParams,
+    pub two_to_one_crh_params: TwoToOneHashParams,
+}
+
+use poseidon377::{RATE_1_PARAMS, RATE_2_PARAMS};
+use poseidon_parameters::v1::Matrix;
+
+impl Default for SettlementProofConst {
+    fn default() -> Self {
+        // fixme: unsafe alpha conversion?
+        let leaf_crh_params = {
+            let params = RATE_1_PARAMS;
+            PoseidonConfig::<Fq>::new(
+                params.rounds.full(),
+                params.rounds.partial(),
+                u32::from_le_bytes(params.alpha.to_bytes_le()).into(),
+                params.mds.0 .0.into_nested_vec(),
+                params.arc.0.into_nested_vec(),
+                1,
+                1,
+            )
+        };
+        let two_to_one_crh_params = {
+            let params = RATE_2_PARAMS;
+            PoseidonConfig::<Fq>::new(
+                params.rounds.full(),
+                params.rounds.partial(),
+                u32::from_le_bytes(params.alpha.to_bytes_le()).into(),
+                params.mds.0 .0.into_nested_vec(),
+                params.arc.0.into_nested_vec(),
+                2,
+                1,
+            )
+        };
+        Self {
+            leaf_crh_params,
+            two_to_one_crh_params,
+        }
+    }
+}
+
+pub trait MatrixExt {
+    fn into_nested_vec(self) -> Vec<Vec<Fq>>;
+}
+
+impl<const N_ROWS: usize, const N_COLS: usize, const N_ELEMENTS: usize> MatrixExt
+    for Matrix<N_ROWS, N_COLS, N_ELEMENTS>
+{
+    fn into_nested_vec(self) -> Vec<Vec<Fq>> {
+        self.elements
+            .chunks(N_COLS)
+            .map(|row| row.to_vec())
+            .collect()
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use ark_crypto_primitives::sponge::poseidon::PoseidonConfig;
-    use ark_std::rand::RngCore; // Needed to generate mds and ark
-
     use super::*;
 
     #[test]
@@ -136,8 +193,7 @@ mod test {
         };
 
         // First, let's sample the public parameters for the hash functions:
-        let leaf_crh_params = PoseidonConfig::<Fq>::new(8, 24, 31, mds.clone(), ark.clone(), 2, 1);
-        let two_to_one_crh_params = PoseidonConfig::<Fq>::new(8, 24, 31, mds, ark, 2, 1);
+        let poseidon_constants = SettlementProofConst::default();
 
         // TODO: remove when `Leaf` is redefined to u8
         // Convert u8 values to Fq
@@ -149,8 +205,8 @@ mod test {
         // Next, let's construct our tree.
         // This follows the API in https://github.com/arkworks-rs/crypto-primitives/blob/6be606259eab0aec010015e2cfd45e4f134cd9bf/src/merkle_tree/mod.rs#L156
         let tree = Poseidon377MerkleTree::new(
-            &leaf_crh_params,
-            &two_to_one_crh_params,
+            &poseidon_constants.leaf_crh_params,
+            &poseidon_constants.two_to_one_crh_params,
             // [1u8, 2u8, 3u8, 10u8, 9u8, 17u8, 70u8, 45u8].map(|u| [u]), // the i-th entry is the i-th leaf.
             leaves,
         )
@@ -165,8 +221,8 @@ mod test {
 
         let circuit = MerkleTreeVerification {
             // constants
-            leaf_crh_params,
-            two_to_one_crh_params,
+            leaf_crh_params: poseidon_constants.leaf_crh_params,
+            two_to_one_crh_params: poseidon_constants.two_to_one_crh_params,
 
             // public inputs
             root,
